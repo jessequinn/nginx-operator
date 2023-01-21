@@ -35,6 +35,13 @@ const (
 
 // NginxOperatorSpec defines the desired state of NginxOperator
 type NginxOperatorSpec struct {
+	// Generic
+	// Selectors adds selectors to service and deployment
+	Selectors map[string]string `json:"selectors,omitempty"`
+	// ForceRedeploy is any string, modifying this field instructs
+	// the Operator to redeploy the Operand
+	ForceRedeploy string `json:"forceRedeploy,omitempty"`
+
 	// Service configurations
 	// ServicePorts defines the ServicePorts exposed on the Nginx service
 	ServicePorts []v1.ServicePort `json:"servicePorts,omitempty"`
@@ -42,8 +49,6 @@ type NginxOperatorSpec struct {
 	ServiceType v1.ServiceType `json:"serviceType,omitempty"`
 
 	// Deployment configurations
-	// Selectors ...
-	Selectors map[string]string `json:"selectors,omitempty"`
 	// VolumeMounts defines the VolumeMounts on the Nginx Pod
 	VolumeMounts []v1.VolumeMount `json:"volumeMounts,omitempty"`
 	// Volumes defines the Volumes on the Nginx Pod
@@ -52,10 +57,6 @@ type NginxOperatorSpec struct {
 	Ports []v1.ContainerPort `json:"ports,omitempty"`
 	// Replicas is the number of deployment replicas to scale
 	Replicas *int32 `json:"replicas,omitempty"`
-
-	// ForceRedeploy is any string, modifying this field instructs
-	// the Operator to redeploy the Operand
-	ForceRedeploy string `json:"forceRedeploy,omitempty"`
 }
 
 // NginxOperatorStatus defines the observed state of NginxOperator

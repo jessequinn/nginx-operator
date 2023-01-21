@@ -27,21 +27,29 @@ import (
 const (
 	ReasonCRNotAvailable          = "OperatorResourceNotAvailable"
 	ReasonDeploymentNotAvailable  = "OperandDeploymentNotAvailable"
+	ReasonServiceNotAvailable     = "OperandServiceNotAvailable"
 	ReasonOperandDeploymentFailed = "OperandDeploymentFailed"
+	ReasonOperandServiceFailed    = "OperandServiceFailed"
 	ReasonSucceeded               = "OperatorSucceeded"
 )
 
 // NginxOperatorSpec defines the desired state of NginxOperator
 type NginxOperatorSpec struct {
+	// Service configurations
+	// ServicePorts defines the ServicePorts exposed on the Nginx service
+	ServicePorts []v1.ServicePort `json:"servicePorts,omitempty"`
+	// ServiceType defines the type of Service used by the Nginx service
+	ServiceType v1.ServiceType `json:"serviceType,omitempty"`
+
+	// Deployment configurations
+	// Selectors ...
+	Selectors map[string]string `json:"selectors,omitempty"`
 	// VolumeMounts defines the VolumeMounts on the Nginx Pod
 	VolumeMounts []v1.VolumeMount `json:"volumeMounts,omitempty"`
-
 	// Volumes defines the Volumes on the Nginx Pod
 	Volumes []v1.Volume `json:"volumes,omitempty"`
-
 	// Ports defines the ContainerPorts exposed on the Nginx Pod
 	Ports []v1.ContainerPort `json:"ports,omitempty"`
-
 	// Replicas is the number of deployment replicas to scale
 	Replicas *int32 `json:"replicas,omitempty"`
 

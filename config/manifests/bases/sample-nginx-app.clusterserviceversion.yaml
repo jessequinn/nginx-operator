@@ -14,6 +14,11 @@ spec:
       displayName: Nginx Operator
       kind: NginxOperator
       name: nginxoperators.operator.example.com
+      version: v1alpha2
+    - description: NginxOperator is the Schema for the nginxoperators API
+      displayName: Nginx Operator
+      kind: NginxOperator
+      name: nginxoperators.operator.example.com
       version: v1alpha1
   description: manages nginx deployments
   displayName: nginx-operator
@@ -38,7 +43,11 @@ spec:
   links:
   - name: Sample Nginx App
     url: https://sample-nginx-app.domain
+  maintainers:
+    - email: devops@zpesystems.com
+      name: Jesse Quinn
   maturity: alpha
   provider:
     name: zpe
+  replaces: nginx-operator.v0.0.1
   version: 0.0.0

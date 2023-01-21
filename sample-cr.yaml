@@ -1,16 +1,65 @@
 ---
-apiVersion: operator.example.com/v1alpha1
-kind: NginxOperator
+apiVersion: v1
+kind: ConfigMap
 metadata:
-  name: first
+  name: nginx-conf
   namespace: sample-nginx-app-system
-spec:
-  replicas: 1
+data:
+  nginx.conf: |
+    user nginx;
+    worker_processes  3;
+    error_log  /var/log/nginx/error.log;
+    events {
+      worker_connections  10240;
+    }
+    http {
+      log_format  main
+              'remote_addr:$remote_addr\t'
+              'time_local:$time_local\t'
+              'method:$request_method\t'
+              'uri:$request_uri\t'
+              'host:$host\t'
+              'status:$status\t'
+              'bytes_sent:$body_bytes_sent\t'
+              'referer:$http_referer\t'
+              'useragent:$http_user_agent\t'
+              'forwardedfor:$http_x_forwarded_for\t'
+              'request_time:$request_time';
+      access_log	/var/log/nginx/access.log main;
+      server {
+          listen       8080;
+          server_name  _;
+          location / {
+              root   html;
+              index  index.html index.htm;
+          }
+      }
+    }
 ---
-apiVersion: operator.example.com/v1alpha1
+apiVersion: operator.example.com/v1alpha2
 kind: NginxOperator
 metadata:
   name: second
   namespace: sample-nginx-app-system
 spec:
   replicas: 1
+  selectors:
+    app.kubernetes.io/name: "second-nginx-example"
+#  serviceType: LoadBalancer
+  servicePorts:
+    - port: 8080
+      targetPort: 8080
+  ports:
+    - containerPort: 8080
+      protocol: TCP
+  volumeMounts:
+    - mountPath: /etc/nginx # mount nginx-conf volume to /etc/nginx
+      readOnly: true
+      name: nginx-conf
+  volumes:
+    - name: nginx-conf
+      configMap:
+        name: nginx-conf # place ConfigMap `nginx-conf` on /etc/nginx
+        items:
+          - key: nginx.conf
+            path: nginx.conf

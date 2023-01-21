@@ -19,6 +19,7 @@ package controllers
 import (
 	"context"
 	"fmt"
+	v1 "k8s.io/api/core/v1"
 	"time"
 
 	apiv2 "github.com/operator-framework/api/pkg/operators/v2"
@@ -48,6 +49,7 @@ type NginxOperatorReconciler struct {
 //+kubebuilder:rbac:groups=operator.example.com,resources=nginxoperators/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=operator.example.com,resources=nginxoperators/finalizers,verbs=update
 //+kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=core,resources=services,verbs=get;list;watch;create;update;patch;delete
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -79,12 +81,16 @@ func (r *NginxOperatorReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		return ctrl.Result{}, utilerrors.NewAggregate([]error{err, r.Status().Update(ctx, operatorCR)})
 	}
 
+	// Create/update deployment
 	deployment := &appsv1.Deployment{}
-	create := false
+	createDeployment := false
 	err = r.Get(ctx, req.NamespacedName, deployment)
 	if err != nil && errors.IsNotFound(err) {
-		create = true
-		deployment = assets.GetDeploymentFromFile("manifests/nginx_deployment.yaml")
+		createDeployment = true
+		deployment, err = assets.GetDeploymentFromFile("manifests/nginx_deployment.yaml")
+		if err != nil {
+			return ctrl.Result{}, err
+		}
 	} else if err != nil {
 		logger.Error(err, "Error getting existing Nginx deployment.")
 		meta.SetStatusCondition(&operatorCR.Status.Conditions, metav1.Condition{
@@ -98,7 +104,8 @@ func (r *NginxOperatorReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	}
 
 	deployment.Namespace = req.Namespace
-	deployment.Name = req.Name
+	deployment.Name = req.Name //fmt.Sprintf("%s-deployment", req.Name)
+
 	if operatorCR.Spec.Replicas != nil {
 		deployment.Spec.Replicas = operatorCR.Spec.Replicas
 	}
@@ -107,30 +114,117 @@ func (r *NginxOperatorReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		deployment.Spec.Template.Spec.Containers[0].Ports = operatorCR.Spec.Ports
 	}
 
-	// Add VolumeMounts to be able to customize Nginx
-	if len(operatorCR.Spec.VolumeMounts) > 0 {
+	// Add Volumes and VolumeMounts to be able to customize Nginx
+	if len(operatorCR.Spec.VolumeMounts) > 0 && len(operatorCR.Spec.Volumes) > 0 {
 		deployment.Spec.Template.Spec.Containers[0].VolumeMounts = operatorCR.Spec.VolumeMounts
 		deployment.Spec.Template.Spec.Volumes = operatorCR.Spec.Volumes
+	}
+
+	if len(operatorCR.Spec.Selectors) > 0 {
+		// Set the spec selector
+		deployment.Spec.Selector = &metav1.LabelSelector{
+			MatchLabels: operatorCR.Spec.Selectors,
+		}
+		// Set the template metadata labels
+		deployment.Spec.Template.ObjectMeta.Labels = operatorCR.Spec.Selectors
+		// Set the metadata labels of the deployment
+		deployment.ObjectMeta.Labels = operatorCR.Spec.Selectors
 	}
 
 	if err := ctrl.SetControllerReference(operatorCR, deployment, r.Scheme); err != nil {
 		return ctrl.Result{}, err
 	}
 
-	if create {
-		err = r.Create(ctx, deployment)
+	if createDeployment {
+		if err := r.Create(ctx, deployment); err != nil {
+			meta.SetStatusCondition(&operatorCR.Status.Conditions, metav1.Condition{
+				Type:               "OperatorDegraded",
+				Status:             metav1.ConditionTrue,
+				Reason:             operatorv1alpha2.ReasonOperandDeploymentFailed,
+				LastTransitionTime: metav1.NewTime(time.Now()),
+				Message:            fmt.Sprintf("unable to create operand deployment: %s", err.Error()),
+			})
+			return ctrl.Result{}, utilerrors.NewAggregate([]error{err, r.Status().Update(ctx, operatorCR)})
+		}
 	} else {
-		err = r.Update(ctx, deployment)
+		if err := r.Update(ctx, deployment); err != nil {
+			meta.SetStatusCondition(&operatorCR.Status.Conditions, metav1.Condition{
+				Type:               "OperatorDegraded",
+				Status:             metav1.ConditionTrue,
+				Reason:             operatorv1alpha2.ReasonOperandDeploymentFailed,
+				LastTransitionTime: metav1.NewTime(time.Now()),
+				Message:            fmt.Sprintf("unable to update operand deployment: %s", err.Error()),
+			})
+			return ctrl.Result{}, utilerrors.NewAggregate([]error{err, r.Status().Update(ctx, operatorCR)})
+		}
 	}
-	if err != nil {
+
+	// Create/update service
+	service := &v1.Service{}
+	createService := false
+	err = r.Get(ctx, req.NamespacedName, service)
+	if err != nil && errors.IsNotFound(err) {
+		createService = true
+		service, err = assets.GetServiceFromFile("manifests/nginx_service.yaml")
+		if err != nil {
+			return ctrl.Result{}, err
+		}
+	} else if err != nil {
+		logger.Error(err, "Error getting existing Nginx service.")
 		meta.SetStatusCondition(&operatorCR.Status.Conditions, metav1.Condition{
 			Type:               "OperatorDegraded",
 			Status:             metav1.ConditionTrue,
-			Reason:             operatorv1alpha2.ReasonOperandDeploymentFailed,
+			Reason:             operatorv1alpha2.ReasonServiceNotAvailable,
 			LastTransitionTime: metav1.NewTime(time.Now()),
-			Message:            fmt.Sprintf("unable to update operand deployment: %s", err.Error()),
+			Message:            fmt.Sprintf("unable to get operand service: %s", err.Error()),
 		})
 		return ctrl.Result{}, utilerrors.NewAggregate([]error{err, r.Status().Update(ctx, operatorCR)})
+	}
+
+	service.Namespace = req.Namespace
+	service.Name = req.Name //fmt.Sprintf("%s-service", req.Name)
+
+	if len(operatorCR.Spec.ServicePorts) > 0 {
+		service.Spec.Ports = operatorCR.Spec.ServicePorts
+	}
+
+	if operatorCR.Spec.ServiceType == v1.ServiceTypeClusterIP || operatorCR.Spec.ServiceType == v1.ServiceTypeLoadBalancer {
+		service.Spec.Type = operatorCR.Spec.ServiceType
+	}
+
+	if len(operatorCR.Spec.Selectors) > 0 {
+		// Set the spec selector
+		service.Spec.Selector = operatorCR.Spec.Selectors
+		// Set the metadata labels of the service
+		service.ObjectMeta.Labels = operatorCR.Spec.Selectors
+	}
+
+	if err := ctrl.SetControllerReference(operatorCR, service, r.Scheme); err != nil {
+		return ctrl.Result{}, err
+	}
+
+	if createService {
+		if err := r.Create(ctx, service); err != nil {
+			meta.SetStatusCondition(&operatorCR.Status.Conditions, metav1.Condition{
+				Type:               "OperatorDegraded",
+				Status:             metav1.ConditionTrue,
+				Reason:             operatorv1alpha2.ReasonOperandServiceFailed,
+				LastTransitionTime: metav1.NewTime(time.Now()),
+				Message:            fmt.Sprintf("unable to create operand service: %s", err.Error()),
+			})
+			return ctrl.Result{}, utilerrors.NewAggregate([]error{err, r.Status().Update(ctx, operatorCR)})
+		}
+	} else {
+		if err := r.Update(ctx, service); err != nil {
+			meta.SetStatusCondition(&operatorCR.Status.Conditions, metav1.Condition{
+				Type:               "OperatorDegraded",
+				Status:             metav1.ConditionTrue,
+				Reason:             operatorv1alpha2.ReasonOperandServiceFailed,
+				LastTransitionTime: metav1.NewTime(time.Now()),
+				Message:            fmt.Sprintf("unable to update operand service: %s", err.Error()),
+			})
+			return ctrl.Result{}, utilerrors.NewAggregate([]error{err, r.Status().Update(ctx, operatorCR)})
+		}
 	}
 
 	meta.SetStatusCondition(&operatorCR.Status.Conditions, metav1.Condition{
@@ -147,7 +241,6 @@ func (r *NginxOperatorReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 
 	condition, err := conditions.InClusterFactory{Client: r.Client}.
 		NewCondition(apiv2.ConditionType(apiv2.Upgradeable))
-
 	if err != nil {
 		return ctrl.Result{}, err
 	}

@@ -25,9 +25,6 @@ import (
 
 // NginxOperatorSpec defines the desired state of NginxOperator
 type NginxOperatorSpec struct {
-	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
-
 	// Port is the port number to expose on the Nginx Pod
 	Port *int32 `json:"port,omitempty"`
 
@@ -36,13 +33,13 @@ type NginxOperatorSpec struct {
 
 	// ForceRedeploy is any string, modifying this field instructs
 	// the Operator to redeploy the Operand
-	ForceRedeploy string `json:"forceRedploy,omitempty"`
+	ForceRedeploy string `json:"forceRedeploy,omitempty"`
 }
 
 // NginxOperatorStatus defines the observed state of NginxOperator
 type NginxOperatorStatus struct {
-	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
+	// Conditions is the list of the most recent status condition updates
+	Conditions []metav1.Condition `json:"conditions"`
 }
 
 //+kubebuilder:object:root=true

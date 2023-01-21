@@ -1,0 +1,16 @@
+---
+apiVersion: operator.example.com/v1alpha1
+kind: NginxOperator
+metadata:
+  name: first
+  namespace: sample-nginx-app-system
+spec:
+  replicas: 1
+---
+apiVersion: operator.example.com/v1alpha1
+kind: NginxOperator
+metadata:
+  name: second
+  namespace: sample-nginx-app-system
+spec:
+  replicas: 1

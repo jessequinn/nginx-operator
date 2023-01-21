@@ -1,0 +1,12 @@
+apiVersion: operator.example.com/v1alpha1
+kind: NginxOperator
+metadata:
+  labels:
+    app.kubernetes.io/name: nginxoperator
+    app.kubernetes.io/instance: nginxoperator-sample
+    app.kubernetes.io/part-of: sample-nginx-app
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/created-by: sample-nginx-app
+  name: nginxoperator-sample
+spec:
+  # TODO(user): Add fields here

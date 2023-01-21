@@ -23,6 +23,13 @@ import (
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
 
+const (
+	ReasonCRNotAvailable          = "OperatorResourceNotAvailable"
+	ReasonDeploymentNotAvailable  = "OperandDeploymentNotAvailable"
+	ReasonOperandDeploymentFailed = "OperandDeploymentFailed"
+	ReasonSucceeded               = "OperatorSucceeded"
+)
+
 // NginxOperatorSpec defines the desired state of NginxOperator
 type NginxOperatorSpec struct {
 	// Port is the port number to expose on the Nginx Pod

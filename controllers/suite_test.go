@@ -30,7 +30,7 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
-	operatorv1alpha1 "github.com/example/nginx-operator/api/v1alpha1"
+	operatorv1alpha1 "github.com/jessequinn/nginx-operator/api/v1alpha1"
 	//+kubebuilder:scaffold:imports
 )
 

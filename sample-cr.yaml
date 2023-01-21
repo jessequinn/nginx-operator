@@ -45,7 +45,35 @@ spec:
   replicas: 1
   selectors:
     app.kubernetes.io/name: "second-nginx-example"
-#  serviceType: LoadBalancer
+  serviceType: ClusterIP
+  servicePorts:
+    - port: 8080
+      targetPort: 8080
+  ports:
+    - containerPort: 8080
+      protocol: TCP
+  volumeMounts:
+    - mountPath: /etc/nginx # mount nginx-conf volume to /etc/nginx
+      readOnly: true
+      name: nginx-conf
+  volumes:
+    - name: nginx-conf
+      configMap:
+        name: nginx-conf # place ConfigMap `nginx-conf` on /etc/nginx
+        items:
+          - key: nginx.conf
+            path: nginx.conf
+---
+apiVersion: operator.example.com/v1alpha2
+kind: NginxOperator
+metadata:
+  name: first
+  namespace: sample-nginx-app-system
+spec:
+  replicas: 1
+  selectors:
+    app.kubernetes.io/name: "first-nginx-example"
+  serviceType: ClusterIP
   servicePorts:
     - port: 8080
       targetPort: 8080
